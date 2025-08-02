@@ -38,30 +38,40 @@ function OpenFloatingTerminal(opts)
     vim.fn.termopen(vim.o.shell)
   end
 
-  -- Buffer settings
   vim.api.nvim_buf_set_option(floating_term_buf, "filetype", "terminal")
   vim.cmd("startinsert")
 
-  -- Close mappings
-  vim.api.nvim_buf_set_keymap(floating_term_buf, 't', '<Esc>', [[<C-\><C-n>:close<CR>]], { noremap = true, silent = true })
-  vim.api.nvim_buf_set_keymap(floating_term_buf, 't', 'q', [[<C-\><C-n>:close<CR>]], { noremap = true, silent = true })
+  -- Keymaps inside terminal
+  local function set_term_keymap(lhs, rhs)
+    vim.api.nvim_buf_set_keymap(floating_term_buf, 't', lhs, rhs, { noremap = true, silent = true })
+  end
 
+  -- Leave terminal mode to normal mode for navigation/copying
+  set_term_keymap('<M-u>', [[<C-\><C-n>]])
+
+  -- Close terminal with q or Esc
+  set_term_keymap('<Esc>', [[<C-\><C-n>:close<CR>]])
+  set_term_keymap('q', [[<C-\><C-n>:close<CR>]])
 end
 
--- 🔁 Clear the buffer and start a fresh terminal
+-- Clear and restart the terminal
 function RestartFloatingTerminal()
-  -- Kill old buffer if it exists
   if floating_term_buf and vim.api.nvim_buf_is_valid(floating_term_buf) then
     vim.api.nvim_buf_delete(floating_term_buf, { force = true })
   end
-
   floating_term_buf = vim.api.nvim_create_buf(false, true)
-
-  -- Start a fresh terminal window
   OpenFloatingTerminal()
 end
 
--- 🧠 Commands
+-- Re-enter terminal mode (e.g., after viewing errors)
+function ReenterTerminalMode()
+  if floating_term_win and vim.api.nvim_win_is_valid(floating_term_win) then
+    vim.api.nvim_set_current_win(floating_term_win)
+    vim.cmd("startinsert")
+  end
+end
+
+-- Commands
 vim.api.nvim_create_user_command('FloatingTerm', function()
   OpenFloatingTerminal()
 end, {})
@@ -70,7 +80,12 @@ vim.api.nvim_create_user_command('RestartFloatingTerm', function()
   RestartFloatingTerminal()
 end, {})
 
--- 🧠 Keybindings
-vim.keymap.set('n', '<leader>tt', function() OpenFloatingTerminal() end, { desc = 'Open Floating Terminal' })
-vim.keymap.set('n', '<leader>tr', function() RestartFloatingTerminal() end, { desc = 'Restart Floating Terminal' })
+vim.api.nvim_create_user_command('TermInsert', function()
+  ReenterTerminalMode()
+end, {})
+
+-- Keybindings
+vim.keymap.set('n', '<leader>tt', OpenFloatingTerminal, { desc = 'Open Floating Terminal' })
+vim.keymap.set('n', '<leader>tr', RestartFloatingTerminal, { desc = 'Restart Floating Terminal' })
+vim.keymap.set('n', '<leader>ti', ReenterTerminalMode, { desc = 'Re-enter Terminal Insert Mode' })
 
